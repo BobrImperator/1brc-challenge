@@ -96,12 +96,8 @@ pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Err
             if let Some(station_temperature) = outs.get_mut(name) {
                 station_temperature.n += 1.;
                 station_temperature.mean += (temperature - station_temperature.mean) / station_temperature.n;
-                if temperature > station_temperature.max {
-                    station_temperature.max = temperature;
-                }
-                if temperature < station_temperature.min {
-                    station_temperature.min = temperature;
-                }
+                station_temperature.max = station_temperature.max.max(temperature);
+                station_temperature.min = station_temperature.max.min(temperature);
             } else {
                 outs.insert(name.to_string(), Temperature::new(temperature));
             }
