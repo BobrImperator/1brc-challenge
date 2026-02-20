@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{BufRead, BufReader},
-};
+use std::{collections::HashMap, fs::File, io::Read, str::from_utf8};
 
 //  Sarajevo;4.5
 //  Brazzaville;12.6
@@ -82,30 +78,78 @@ impl Temperature {
 // Done in: `70s`
 
 pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Error>> {
-    let measurements = File::open("measurements.txt")?;
-
-    let reader = BufReader::with_capacity(32768, measurements);
+    let mut measurements = File::open("measurements.txt")?;
 
     let mut outs: HashMap<StationName, Temperature> = HashMap::new();
 
-    // Read line by line
-    for line in reader.lines() {
-        let line = line?;
+    let mut buf = [0u8; 32768];
+    let mut leftover_len: usize = 0;
 
-        if let Some((name, temperature)) = line.split_once(';') {
-            let temperature: f32 = temperature.parse()?;
-            if let Some(station_temperature) = outs.get_mut(name) {
-                station_temperature.n += 1.;
-                station_temperature.sum += temperature;
-                station_temperature.max = station_temperature.max.max(temperature);
-                station_temperature.min = station_temperature.min.min(temperature);
-            } else {
-                outs.insert(name.to_string(), Temperature::new(temperature));
+    loop {
+        // Read new data after the leftover from previous iteration
+        let bytes_read = match measurements.read(&mut buf[leftover_len..]) {
+            Ok(0) => break, // EOF
+            Ok(v) => v,
+            Err(e) => {
+                println!("{:?}", e);
+                break;
+            }
+        };
+
+        let valid = leftover_len + bytes_read;
+
+        // Find last newline — everything before it is complete lines
+        let last_newline = match buf[..valid].iter().rposition(|&b| b == b'\n') {
+            Some(pos) => pos,
+            None => {
+                // No newline found — entire chunk is a partial line, keep reading
+                leftover_len = valid;
+                continue;
+            }
+        };
+
+        // Process all complete lines
+        for line in buf[..last_newline].split(|&b| b == b'\n') {
+            let line = from_utf8(line)?;
+            if let Some((name, temperature)) = line.split_once(';') {
+                let temperature: f32 = temperature.parse()?;
+                if let Some(station_temperature) = outs.get_mut(name) {
+                    station_temperature.n += 1.;
+                    station_temperature.sum += temperature;
+                    station_temperature.max = station_temperature.max.max(temperature);
+                    station_temperature.min = station_temperature.min.min(temperature);
+                } else {
+                    outs.insert(name.to_string(), Temperature::new(temperature));
+                }
             }
         }
 
-        // println!("{}", line);
+        // Move leftover partial line to the front of the buffer
+        let remaining = valid - last_newline - 1;
+        buf.copy_within(last_newline + 1..valid, 0);
+        leftover_len = remaining;
     }
+
+    // let reader = BufReader::with_capacity(32768, measurements);
+
+    // Read line by line
+    //for line in reader.read_line(buf) {
+    //    let line = line?;
+
+    //    if let Some((name, temperature)) = line.split_once(';') {
+    //        let temperature: f32 = temperature.parse()?;
+    //        if let Some(station_temperature) = outs.get_mut(name) {
+    //            station_temperature.n += 1.;
+    //            station_temperature.sum += temperature;
+    //            station_temperature.max = station_temperature.max.max(temperature);
+    //            station_temperature.min = station_temperature.min.min(temperature);
+    //        } else {
+    //            outs.insert(name.to_string(), Temperature::new(temperature));
+    //        }
+    //    }
+
+    //    // println!("{}", line);
+    //}
 
     for (name, temperature) in outs {
         let min = temperature.min;
