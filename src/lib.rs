@@ -71,7 +71,7 @@ impl Temperature {
         }
     }
 }
-
+use fnv::FnvHashMap;
 // RES: Budapest=-36.7/11.3/61.2, Yinchuan=-37.3/9.0/59.3, Zagreb=-39.5/10.7/65.6
 // My:
 // Some(Temperature { min: -36.7, max: 61.2, mean: 11.309869, n: 2422166.0 })
@@ -85,7 +85,8 @@ pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Err
 
     let reader = BufReader::with_capacity(32768, measurements);
 
-    let mut outs: HashMap<StationName, Temperature> = HashMap::new();
+    let mut outs: FnvHashMap<StationName, Temperature> = FnvHashMap::default();
+    // let mut outs: HashMap<StationName, Temperature> = HashMap::new();
 
     // Read line by line
     for line in reader.lines() {
