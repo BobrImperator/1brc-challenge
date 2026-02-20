@@ -1,5 +1,7 @@
 use std::{
-    collections::HashMap, fmt, fs::File, io::{BufRead, BufReader}
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader},
 };
 
 //  Sarajevo;4.5
@@ -57,7 +59,7 @@ type StationName = String;
 struct Temperature {
     min: f32,
     max: f32,
-    mean: f32,
+    sum: f32,
     n: f32,
 }
 
@@ -66,7 +68,7 @@ impl Temperature {
         Self {
             min: temperature,
             max: temperature,
-            mean: temperature,
+            sum: temperature,
             n: 0.,
         }
     }
@@ -78,7 +80,6 @@ impl Temperature {
 // Some(Temperature { min: -39.5, max: 65.6, mean: 10.706982, n: 2420671.0 })
 // Some(Temperature { min: -37.3, max: 59.3, mean: 9.006653, n: 2422896.0 })
 // Done in: `70s`
-
 
 pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Error>> {
     let measurements = File::open("measurements.txt")?;
@@ -95,9 +96,9 @@ pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Err
             let temperature: f32 = temperature.parse()?;
             if let Some(station_temperature) = outs.get_mut(name) {
                 station_temperature.n += 1.;
-                station_temperature.mean += (temperature - station_temperature.mean) / station_temperature.n;
+                station_temperature.sum += temperature;
                 station_temperature.max = station_temperature.max.max(temperature);
-                station_temperature.min = station_temperature.max.min(temperature);
+                station_temperature.min = station_temperature.min.min(temperature);
             } else {
                 outs.insert(name.to_string(), Temperature::new(temperature));
             }
@@ -105,9 +106,24 @@ pub fn read_and_calculated_measuerements() -> Result<(), Box<dyn std::error::Err
 
         // println!("{}", line);
     }
-    println!("{:?}", outs.get("Budapest"));
-    println!("{:?}", outs.get("Yinchuan"));
-    println!("{:?}", outs.get("Zagreb"));
+
+    for (name, temperature) in outs {
+        let min = temperature.min;
+        let max = temperature.max;
+        let mean = temperature.sum / temperature.n;
+        if [
+            "Budapest".to_string(),
+            "Yinchuan".to_string(),
+            "Zagreb".to_string(),
+        ]
+        .contains(&name)
+        {
+            println!("{name}={min}/{mean}/{max}");
+            //println!("{:?}", outs.get("Budapest"));
+            //println!("{:?}", outs.get("Yinchuan"));
+            //println!("{:?}", outs.get("Zagreb"));
+        }
+    }
 
     // println!("Hello, world!: {:?}", measurements);
 
